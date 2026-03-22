@@ -12,7 +12,7 @@ export const options = {
 
 // 2. Base Configuration - define base URL/api url so that we avoid hardcoding URLs everywhere
 // tawagon ra nimo ang BASE_URL variable, mao ni katong {{STAGING}} sa Postman
-const BASE_URL = 'https://example.com'
+const BASE_URL = __ENV.BASE_URL || 'https://example.com' //command to run: k6 run --env BASE_URL=https://example.com scripts/test_structure_script.js
 
 // 3. Default Headers or reusable headers. Pwede nimo i-define diri ang common headers nga imong gusto i-include sa tanan requests, like Content-Type or Authorization tokens
 const defaultHeaders = {

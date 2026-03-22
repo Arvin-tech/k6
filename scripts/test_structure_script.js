@@ -17,6 +17,7 @@ const BASE_URL = __ENV.BASE_URL || 'https://example.com' //command to run: k6 ru
 // 3. Default Headers or reusable headers. Pwede nimo i-define diri ang common headers nga imong gusto i-include sa tanan requests, like Content-Type or Authorization tokens
 const defaultHeaders = {
   'Content-Type': 'application/json',
+  'Authorization': `Bearer ${__ENV.API_TOKEN || 'default_token'}`, //example of using environment variable for token
 }
 
 // 4. Main Test Function

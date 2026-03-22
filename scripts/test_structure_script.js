@@ -6,7 +6,7 @@ export const options = {
   vus: 10, // number of virtual users
   duration: '30s', // total test duration
   thresholds: {
-    http_req_duration: ['p(95)<500'], // 95% of requests < 500ms
+    http_req_duration: ['p(95)<500'], // Pass/Fail criteria: 95% of requests should be under 500ms
   },
 }
 

@@ -1,0 +1,29 @@
+import http from 'k6/http';
+import { SharedArray } from 'k6/data';
+import exec from 'k6/execution';
+
+const testData = new SharedArray('testData', function () {
+  return JSON.parse(open('./test-scenarios.json'));
+});
+
+export const options = {
+  vus: 10,
+  iterations: 100,
+};
+
+export default function () {
+  // Each VU iterates through data sequentially
+  const dataIndex = exec.scenario.iterationInTest % testData.length;
+  const scenario = testData[dataIndex];
+
+  const response = http.post(
+    `https://api.example.com${scenario.endpoint}`,
+    JSON.stringify(scenario.payload),
+    { headers: { 'Content-Type': 'application/json' } }
+  );
+
+  // Validate against expected response
+  check(response, {
+    'correct status': (r) => r.status === scenario.expectedStatus,
+  });
+}

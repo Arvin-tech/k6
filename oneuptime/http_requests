@@ -1,0 +1,65 @@
+// k6 provides a comprehensive HTTP module for making all types of requests. 
+// Here are examples of common request patterns.
+
+import http from 'k6/http';
+import { check } from 'k6';
+
+export default function () {
+  // GET request with query parameters
+  const getResponse = http.get('https://api.example.com/users?page=1&limit=10');
+
+  // POST request with JSON body
+  const postPayload = JSON.stringify({
+    name: 'John Doe',
+    email: 'john@example.com',
+    role: 'developer',
+  });
+
+  const postParams = {
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer token123',
+    },
+  };
+
+  const postResponse = http.post(
+    'https://api.example.com/users',
+    postPayload,
+    postParams
+  );
+
+  // PUT request for updating resources
+  const putPayload = JSON.stringify({
+    name: 'John Updated',
+    email: 'john.updated@example.com',
+  });
+
+  const putResponse = http.put(
+    'https://api.example.com/users/123',
+    putPayload,
+    postParams
+  );
+
+  // DELETE request
+  const deleteResponse = http.del('https://api.example.com/users/123', null, postParams);
+
+  // PATCH request for partial updates
+  const patchPayload = JSON.stringify({ status: 'active' });
+  const patchResponse = http.patch(
+    'https://api.example.com/users/123',
+    patchPayload,
+    postParams
+  );
+
+  // Batch multiple requests for efficiency
+  const batchResponses = http.batch([
+    ['GET', 'https://api.example.com/users'],
+    ['GET', 'https://api.example.com/products'],
+    ['GET', 'https://api.example.com/orders'],
+  ]);
+
+  // Access individual responses from batch
+  check(batchResponses[0], {
+    'users endpoint OK': (r) => r.status === 200,
+  });
+}

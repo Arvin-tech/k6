@@ -1,0 +1,55 @@
+// lib/checks.js
+import { check } from 'k6';
+
+// Standard response checks
+export function checkStatus(response, expectedStatus, name = 'status check') {
+  return check(response, {
+    [name]: (r) => r.status === expectedStatus,
+  });
+}
+
+// Check for successful response (2xx)
+export function checkSuccess(response) {
+  return check(response, {
+    'is successful (2xx)': (r) => r.status >= 200 && r.status < 300,
+  });
+}
+
+// Check response time
+export function checkResponseTime(response, maxDuration, name = 'response time') {
+  return check(response, {
+    [`${name} < ${maxDuration}ms`]: (r) => r.timings.duration < maxDuration,
+  });
+}
+
+// Check JSON response structure
+export function checkJsonStructure(response, requiredFields) {
+  const json = response.json();
+  const checks = {};
+
+  requiredFields.forEach(field => {
+    checks[`has field: ${field}`] = () => json[field] !== undefined;
+  });
+
+  return check(json, checks);
+}
+
+// Combined checks for API responses
+export function checkApiResponse(response, options = {}) {
+  const {
+    status = 200,
+    maxDuration = 500,
+    requiredFields = [],
+  } = options;
+
+  let allPassed = true;
+
+  allPassed = checkStatus(response, status) && allPassed;
+  allPassed = checkResponseTime(response, maxDuration) && allPassed;
+
+  if (requiredFields.length > 0) {
+    allPassed = checkJsonStructure(response, requiredFields) && allPassed;
+  }
+
+  return allPassed;
+}

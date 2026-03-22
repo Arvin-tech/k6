@@ -1,0 +1,91 @@
+// lib/api-client.js
+import http from 'k6/http';
+import { check } from 'k6';
+
+const BASE_URL = __ENV.BASE_URL || 'https://api.example.com';
+
+export class APIClient {
+  constructor(token = null) {
+    this.token = token;
+    this.baseHeaders = {
+      'Content-Type': 'application/json',
+    };
+  }
+
+  // Set authentication token
+  setToken(token) {
+    this.token = token;
+  }
+
+  // Get headers with optional auth
+  getHeaders() {
+    const headers = { ...this.baseHeaders };
+    if (this.token) {
+      headers['Authorization'] = `Bearer ${this.token}`;
+    }
+    return headers;
+  }
+
+  // Generic request method
+  request(method, endpoint, body = null) {
+    const url = `${BASE_URL}${endpoint}`;
+    const options = { headers: this.getHeaders() };
+
+    switch (method.toUpperCase()) {
+      case 'GET':
+        return http.get(url, options);
+      case 'POST':
+        return http.post(url, body ? JSON.stringify(body) : null, options);
+      case 'PUT':
+        return http.put(url, body ? JSON.stringify(body) : null, options);
+      case 'PATCH':
+        return http.patch(url, body ? JSON.stringify(body) : null, options);
+      case 'DELETE':
+        return http.del(url, null, options);
+      default:
+        throw new Error(`Unsupported method: ${method}`);
+    }
+  }
+
+  // Convenience methods
+  get(endpoint) {
+    return this.request('GET', endpoint);
+  }
+
+  post(endpoint, body) {
+    return this.request('POST', endpoint, body);
+  }
+
+  put(endpoint, body) {
+    return this.request('PUT', endpoint, body);
+  }
+
+  patch(endpoint, body) {
+    return this.request('PATCH', endpoint, body);
+  }
+
+  delete(endpoint) {
+    return this.request('DELETE', endpoint);
+  }
+}
+
+// Authentication helper
+export function authenticate(username, password) {
+  const response = http.post(`${BASE_URL}/auth/login`, JSON.stringify({
+    username,
+    password,
+  }), {
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+  const success = check(response, {
+    'authentication successful': (r) => r.status === 200,
+    'received token': (r) => r.json('token') !== undefined,
+  });
+
+  if (!success) {
+    throw new Error('Authentication failed');
+  }
+
+  return response.json('token');
+}

@@ -1,0 +1,118 @@
+//k6 provides lifecycle hooks for setup, teardown, and scenario-specific initialization.
+
+import http from 'k6/http';
+import { check, sleep } from 'k6';
+import exec from 'k6/execution';
+
+export const options = {
+  scenarios: {
+    // Scenario with per-VU setup/teardown
+    load_test: {
+      executor: 'ramping-vus',
+      startVUs: 0,
+      stages: [
+        { duration: '1m', target: 50 },
+        { duration: '3m', target: 50 },
+        { duration: '1m', target: 0 },
+      ],
+    },
+  },
+};
+
+// Global setup - runs once at the start
+export function setup() {
+  console.log('Setting up test environment...');
+
+  // Create test data
+  const response = http.post('https://api.example.com/test/setup', JSON.stringify({
+    testRunId: `test-${Date.now()}`,
+    environment: 'staging',
+  }), {
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+  if (response.status !== 200) {
+    throw new Error('Setup failed: ' + response.body);
+  }
+
+  const setupData = response.json();
+
+  // Authenticate and get token
+  const authResponse = http.post('https://api.example.com/auth/login', JSON.stringify({
+    username: 'loadtest-user',
+    password: 'loadtest-pass',
+  }), {
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+  return {
+    testRunId: setupData.testRunId,
+    token: authResponse.json('token'),
+    startTime: Date.now(),
+  };
+}
+
+// Main test function - receives setup data
+export default function (data) {
+  const headers = {
+    'Authorization': `Bearer ${data.token}`,
+    'Content-Type': 'application/json',
+    'X-Test-Run-Id': data.testRunId,
+  };
+
+  // Track VU and iteration info
+  const vuId = exec.vu.idInTest;
+  const iteration = exec.vu.iterationInScenario;
+
+  // Perform test operations
+  const response = http.get('https://api.example.com/users', { headers });
+
+  check(response, {
+    'users loaded': (r) => r.status === 200,
+  });
+
+  sleep(1);
+}
+
+// Handle VU initialization (runs once per VU)
+export function handleSummary(data) {
+  // Generate custom summary report
+  const duration = Date.now() - data.setup_data.startTime;
+
+  return {
+    'stdout': textSummary(data, { indent: ' ', enableColors: true }),
+    './summary.json': JSON.stringify({
+      testRunId: data.setup_data.testRunId,
+      duration: duration,
+      metrics: {
+        http_reqs: data.metrics.http_reqs.values.count,
+        http_req_duration_p95: data.metrics.http_req_duration.values['p(95)'],
+        http_req_failed_rate: data.metrics.http_req_failed.values.rate,
+      },
+      thresholds: data.root_group.checks,
+    }, null, 2),
+  };
+}
+
+import { textSummary } from 'https://jslib.k6.io/k6-summary/0.0.1/index.js';
+
+// Global teardown - runs once at the end
+export function teardown(data) {
+  console.log('Cleaning up test environment...');
+  console.log(`Test run ${data.testRunId} completed`);
+
+  // Clean up test data
+  http.post('https://api.example.com/test/cleanup', JSON.stringify({
+    testRunId: data.testRunId,
+  }), {
+    headers: {
+      'Authorization': `Bearer ${data.token}`,
+      'Content-Type': 'application/json',
+    },
+  });
+
+  // Logout
+  http.post('https://api.example.com/auth/logout', null, {
+    headers: { 'Authorization': `Bearer ${data.token}` },
+  });
+}

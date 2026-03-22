@@ -1,0 +1,19 @@
+import http from 'k6/http';
+import { FormData } from 'https://jslib.k6.io/formdata/0.0.2/index.js';
+
+export default function () {
+  // URL-encoded form data
+  const formResponse = http.post('https://api.example.com/login', {
+    username: 'testuser',
+    password: 'testpass',
+  });
+
+  // Multipart form data with file upload
+  const fd = new FormData();
+  fd.append('name', 'test-file');
+  fd.append('file', http.file(open('./test-file.pdf', 'b'), 'document.pdf'));
+
+  const uploadResponse = http.post('https://api.example.com/upload', fd.body(), {
+    headers: { 'Content-Type': 'multipart/form-data; boundary=' + fd.boundary },
+  });
+}

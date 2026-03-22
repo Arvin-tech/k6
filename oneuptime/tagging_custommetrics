@@ -1,0 +1,19 @@
+import http from 'k6/http';
+import { Trend } from 'k6/metrics';
+
+// Create tagged metrics for different endpoints
+const apiLatency = new Trend('api_latency');
+
+export default function () {
+  // Tag metrics by endpoint for granular analysis
+  const usersResponse = http.get('https://api.example.com/users');
+  apiLatency.add(usersResponse.timings.duration, { endpoint: '/users', method: 'GET' });
+
+  const productsResponse = http.get('https://api.example.com/products');
+  apiLatency.add(productsResponse.timings.duration, { endpoint: '/products', method: 'GET' });
+
+  const orderResponse = http.post('https://api.example.com/orders', '{}', {
+    headers: { 'Content-Type': 'application/json' },
+  });
+  apiLatency.add(orderResponse.timings.duration, { endpoint: '/orders', method: 'POST' });
+}

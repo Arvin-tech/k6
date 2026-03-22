@@ -1,0 +1,67 @@
+//Every k6 script follows a consistent structure with specific lifecycle stages. 
+// Understanding this structure is fundamental to writing effective tests.
+
+// Import necessary k6 modules
+import http from 'k6/http';
+import { check, sleep } from 'k6';
+
+// Configuration options for the test
+export const options = {
+  // Define virtual users (VUs) and duration
+  vus: 10,              // Number of virtual users
+  duration: '30s',      // Test duration
+
+  // Or use stages for ramping patterns
+  stages: [
+    { duration: '1m', target: 20 },   // Ramp up to 20 users over 1 minute
+    { duration: '3m', target: 20 },   // Stay at 20 users for 3 minutes
+    { duration: '1m', target: 0 },    // Ramp down to 0 users
+  ],
+
+  // Define thresholds for pass/fail criteria
+  thresholds: {
+    http_req_duration: ['p(95)<500'],  // 95% of requests must complete under 500ms
+    http_req_failed: ['rate<0.01'],    // Less than 1% of requests can fail
+  },
+};
+
+// Setup function runs once before the test starts
+export function setup() {
+  // Perform setup tasks like authentication or data preparation
+  const loginRes = http.post('https://api.example.com/auth/login', {
+    username: 'testuser',
+    password: 'testpass',
+  });
+
+  // Return data to be used by default function
+  return { token: loginRes.json('token') };
+}
+
+// Default function runs repeatedly for each VU during the test
+export default function (data) {
+  // Use the token from setup
+  const headers = {
+    'Authorization': `Bearer ${data.token}`,
+    'Content-Type': 'application/json',
+  };
+
+  // Make HTTP requests
+  const response = http.get('https://api.example.com/users', { headers });
+
+  // Validate responses
+  check(response, {
+    'status is 200': (r) => r.status === 200,
+    'response time OK': (r) => r.timings.duration < 500,
+  });
+
+  // Add realistic think time between requests
+  sleep(1);
+}
+
+// Teardown function runs once after the test completes
+export function teardown(data) {
+  // Clean up resources, logout, or generate reports
+  http.post('https://api.example.com/auth/logout', null, {
+    headers: { 'Authorization': `Bearer ${data.token}` },
+  });
+}

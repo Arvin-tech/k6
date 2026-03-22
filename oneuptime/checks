@@ -1,0 +1,46 @@
+//Checks are assertions that validate response data. They do not stop test execution on failure but record pass/fail metrics.
+
+import http from 'k6/http';
+import { check } from 'k6';
+
+export default function () {
+  const response = http.get('https://api.example.com/users/1');
+
+  // Basic status code check
+  check(response, {
+    'status is 200': (r) => r.status === 200,
+  });
+
+  // Multiple checks on the same response
+  check(response, {
+    'status is 200': (r) => r.status === 200,
+    'response time < 500ms': (r) => r.timings.duration < 500,
+    'content-type is JSON': (r) => r.headers['Content-Type'].includes('application/json'),
+    'body is not empty': (r) => r.body.length > 0,
+  });
+
+  // Check JSON response content
+  const jsonResponse = response.json();
+
+  check(jsonResponse, {
+    'user has id': (data) => data.id !== undefined,
+    'user has valid email': (data) => data.email.includes('@'),
+    'user is active': (data) => data.status === 'active',
+  });
+
+  // Check array responses
+  const listResponse = http.get('https://api.example.com/users');
+  const users = listResponse.json();
+
+  check(users, {
+    'returns array': (data) => Array.isArray(data),
+    'has at least one user': (data) => data.length > 0,
+    'all users have emails': (data) => data.every(user => user.email),
+  });
+
+  // Check response headers
+  check(response, {
+    'has cache-control header': (r) => r.headers['Cache-Control'] !== undefined,
+    'uses gzip compression': (r) => r.headers['Content-Encoding'] === 'gzip',
+  });
+}

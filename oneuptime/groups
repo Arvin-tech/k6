@@ -1,0 +1,69 @@
+//Groups organize your test logic into logical sections, making it easier to analyze results and identify bottlenecks.
+
+import http from 'k6/http';
+import { check, group, sleep } from 'k6';
+
+export default function () {
+  // Group for user authentication flow
+  group('Authentication', function () {
+    const loginPayload = JSON.stringify({
+      username: 'testuser',
+      password: 'testpass',
+    });
+
+    const loginResponse = http.post('https://api.example.com/auth/login', loginPayload, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    check(loginResponse, {
+      'login successful': (r) => r.status === 200,
+      'received token': (r) => r.json('token') !== undefined,
+    });
+
+    sleep(1);
+  });
+
+  // Group for user profile operations
+  group('User Profile', function () {
+    const profileResponse = http.get('https://api.example.com/users/me');
+
+    check(profileResponse, {
+      'profile loaded': (r) => r.status === 200,
+      'has user data': (r) => r.json('id') !== undefined,
+    });
+
+    // Nested group for profile updates
+    group('Update Profile', function () {
+      const updatePayload = JSON.stringify({ bio: 'Updated bio' });
+      const updateResponse = http.patch('https://api.example.com/users/me', updatePayload, {
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      check(updateResponse, {
+        'update successful': (r) => r.status === 200,
+      });
+    });
+
+    sleep(1);
+  });
+
+  // Group for product browsing
+  group('Product Catalog', function () {
+    const productsResponse = http.get('https://api.example.com/products?category=electronics');
+
+    check(productsResponse, {
+      'products loaded': (r) => r.status === 200,
+      'has products': (r) => r.json().length > 0,
+    });
+
+    // Get product details
+    const productId = productsResponse.json()[0].id;
+    const detailResponse = http.get(`https://api.example.com/products/${productId}`);
+
+    check(detailResponse, {
+      'product details loaded': (r) => r.status === 200,
+    });
+
+    sleep(2);
+  });
+}

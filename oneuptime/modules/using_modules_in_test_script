@@ -1,0 +1,49 @@
+// test-script.js
+import { sleep } from 'k6';
+import { APIClient, authenticate } from './lib/api-client.js';
+import { checkApiResponse, checkSuccess } from './lib/checks.js';
+
+export const options = {
+  vus: 20,
+  duration: '5m',
+  thresholds: {
+    http_req_duration: ['p(95)<1000'],
+    http_req_failed: ['rate<0.05'],
+  },
+};
+
+export function setup() {
+  const token = authenticate('testuser', 'testpass');
+  return { token };
+}
+
+export default function (data) {
+  const api = new APIClient(data.token);
+
+  // Get users with comprehensive checks
+  const usersResponse = api.get('/users');
+  checkApiResponse(usersResponse, {
+    status: 200,
+    maxDuration: 500,
+    requiredFields: ['id', 'email', 'name'],
+  });
+
+  // Create order
+  const orderResponse = api.post('/orders', {
+    items: [{ productId: 'prod-001', quantity: 1 }],
+  });
+  checkApiResponse(orderResponse, {
+    status: 201,
+    maxDuration: 1000,
+    requiredFields: ['orderId', 'status'],
+  });
+
+  // Update order
+  const orderId = orderResponse.json('orderId');
+  const updateResponse = api.patch(`/orders/${orderId}`, {
+    status: 'confirmed',
+  });
+  checkSuccess(updateResponse);
+
+  sleep(1);
+}

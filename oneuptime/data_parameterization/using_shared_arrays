@@ -1,0 +1,49 @@
+// Real load tests need varied data. k6 provides several ways to parameterize your tests with realistic data.
+//Using Shared Arrays for Large Datasets
+
+import http from 'k6/http';
+import { check, sleep } from 'k6';
+import { SharedArray } from 'k6/data';
+
+// Load user data from JSON file (loaded once, shared across VUs)
+const users = new SharedArray('users', function () {
+  return JSON.parse(open('./test-users.json'));
+});
+
+// Load CSV data
+const products = new SharedArray('products', function () {
+  const data = open('./products.csv');
+  return data.split('\n').slice(1).map(line => {
+    const [id, name, price, category] = line.split(',');
+    return { id, name, price: parseFloat(price), category };
+  });
+});
+
+export default function () {
+  // Get random user for this iteration
+  const user = users[Math.floor(Math.random() * users.length)];
+
+  // Login with parameterized credentials
+  const loginPayload = JSON.stringify({
+    email: user.email,
+    password: user.password,
+  });
+
+  const loginResponse = http.post('https://api.example.com/auth/login', loginPayload, {
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+  check(loginResponse, {
+    'login successful': (r) => r.status === 200,
+  });
+
+  // Browse random products
+  const product = products[Math.floor(Math.random() * products.length)];
+  const productResponse = http.get(`https://api.example.com/products/${product.id}`);
+
+  check(productResponse, {
+    'product found': (r) => r.status === 200,
+  });
+
+  sleep(1);
+}
